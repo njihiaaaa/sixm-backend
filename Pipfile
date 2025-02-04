@@ -12,6 +12,7 @@ importlib-metadata = "*"
 python-dotenv = "*"
 flask-restx = "*"
 flask-cors = "*"
+gunicorn = "*"
 
 [dev-packages]
 
