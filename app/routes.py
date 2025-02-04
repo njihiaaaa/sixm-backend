@@ -1,8 +1,8 @@
+import logging
 from flask import request, jsonify
 from flask_restx import Api, Resource, fields
 from flask_cors import CORS
 from .models import db, User, Product, Order
-import logging
 
 # ✅ Initialize Logging
 logging.basicConfig(level=logging.INFO)
@@ -15,9 +15,9 @@ api = Api(
 )
 
 # ----------- Register Namespaces -----------
-user_ns = api.namespace("users", description="User operations")
-product_ns = api.namespace("products", description="Product operations")
-order_ns = api.namespace("orders", description="Order operations")
+user_ns = api.namespace("users", description="🔹 User operations")
+product_ns = api.namespace("products", description="🔹 Product operations")
+order_ns = api.namespace("orders", description="🔹 Order operations")
 
 # ----------- Swagger Models -----------
 user_model = api.model(
@@ -37,6 +37,7 @@ product_model = api.model(
         "description": fields.String(required=True, description="Product description"),
         "price": fields.Float(required=True, description="Product price"),
         "category": fields.String(required=True, description="Product category"),
+        "image": fields.String(required=False, description="Product image URL")
     },
 )
 
@@ -51,18 +52,16 @@ class UserList(Resource):
                 [{"id": u.id, "username": u.username, "email": u.email, "role": u.role} for u in users]
             )
         except Exception as e:
-            logging.error(f"Error fetching users: {str(e)}")
+            logging.error(f"❌ Error fetching users: {str(e)}")
             return {"error": "Failed to fetch users"}, 500
 
     @api.expect(user_model)
     def post(self):
         """🔹 Create a new user"""
         data = request.get_json()
-
-        required_fields = ["username", "email", "password", "role"]
-        for field in required_fields:
-            if field not in data:
-                return {"error": f"Missing field: {field}"}, 400
+        
+        if not all(field in data for field in ["username", "email", "password", "role"]):
+            return {"error": "Missing required fields"}, 400
 
         if User.query.filter_by(email=data["email"]).first():
             return {"error": "Email already registered"}, 400
@@ -75,7 +74,7 @@ class UserList(Resource):
             return {"message": "User created successfully"}, 201
         except Exception as e:
             db.session.rollback()
-            logging.error(f"User creation error: {str(e)}")
+            logging.error(f"❌ User creation error: {str(e)}")
             return {"error": str(e)}, 500
 
 @user_ns.route("/login")
@@ -83,8 +82,8 @@ class UserLogin(Resource):
     def post(self):
         """🔹 Authenticate user"""
         data = request.get_json()
-
         user = User.query.filter_by(email=data["email"]).first()
+
         if not user:
             return {"error": "User not found"}, 404
 
@@ -105,20 +104,20 @@ class ProductList(Resource):
             products = Product.query.all()
             if not products:
                 return {"message": "No products found"}, 200
-            return jsonify(
-                [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "description": p.description,
-                        "price": p.price,
-                        "category": p.category,
-                    }
-                    for p in products
-                ]
-            )
+
+            return jsonify([
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "price": p.price,
+                    "category": p.category,
+                    "image": p.image
+                }
+                for p in products
+            ])
         except Exception as e:
-            logging.error(f"Error fetching products: {str(e)}")
+            logging.error(f"❌ Error fetching products: {str(e)}")
             return {"error": "Failed to fetch products"}, 500
 
     @api.expect(product_model)
@@ -126,10 +125,8 @@ class ProductList(Resource):
         """🔹 Create a new product and prevent duplicates"""
         data = request.get_json()
 
-        required_fields = ["name", "description", "price", "category"]
-        for field in required_fields:
-            if field not in data:
-                return {"error": f"Missing field: {field}"}, 400
+        if not all(field in data for field in ["name", "description", "price", "category"]):
+            return {"error": "Missing required fields"}, 400
 
         existing_product = Product.query.filter_by(name=data["name"]).first()
         if existing_product:
@@ -140,14 +137,15 @@ class ProductList(Resource):
                 name=data["name"],
                 description=data["description"],
                 price=data["price"],
-                category=data["category"]
+                category=data["category"],
+                image=data.get("image", None)
             )
             db.session.add(new_product)
             db.session.commit()
             return {"message": "Product added successfully"}, 201
         except Exception as e:
             db.session.rollback()
-            logging.error(f"Error adding product: {str(e)}")
+            logging.error(f"❌ Error adding product: {str(e)}")
             return {"error": str(e)}, 500
 
 # ----------- ✅ Attach Namespaces to API -----------
